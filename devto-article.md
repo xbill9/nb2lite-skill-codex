@@ -1,7 +1,7 @@
 ---
 title: "Teaching Codex to Paint: A Stateful Image-Editing Skill Built on Gemini's Interactions API and MCP"
-published: false
-description: "How nb2lite-skill-codex packages Google's gemini-3.1-flash-lite-image as a Codex skill + MCP server — with multi-turn stateful edits, an idiot-proof install guide, and a dogfooded cover image."
+published: true
+description: "How nb2lite-skill-codex packages Google's gemini-3.1-flash-lite-image as a Codex skill + MCP server — with Codex-native install paths, stateful edits, and a dogfooded cover."
 tags: ai, codex, gemini, mcp
 cover_image: https://raw.githubusercontent.com/xbill9/nb2lite-skill-codex/main/devto-cover.jpg
 ---
@@ -73,9 +73,14 @@ For `nb2lite-image`, the skill encodes things like:
 
 The skill also bundles the MCP server itself (`mcp/server.py`), its requirements, an installer script, and a vendored copy of the Interactions API developer guide — so it's self-contained: install the skill, and you have everything needed to also stand up the server.
 
-## Installing it: the "I just want it to work" edition
+## Installing the skill and MCP server in Codex
 
-You need three things: **Python 3.10+**, **Codex**, and a **Gemini API key** (free from [Google AI Studio](https://aistudio.google.com/)). Pick *one* of the paths below.
+You need **Python 3.10+**, **Codex**, and a **Gemini API key** from [Google AI Studio](https://aistudio.google.com/). There are two pieces to install:
+
+- The **skill** goes in `.agents/skills/nb2lite-image/` for one project, or `~/.agents/skills/nb2lite-image/` for every project.
+- The **MCP registration** tells Codex how to start `server.py` and which environment-variable names to forward. The API key itself is never written into the Codex config.
+
+Pick one path below. Each path installs both pieces unless noted otherwise.
 
 ### Path A: The plugin marketplace (fewest keystrokes)
 
@@ -85,9 +90,20 @@ From a terminal, add the marketplace:
 codex plugin marketplace add xbill9/nb2lite-skill-codex
 ```
 
-Then install `nb2lite-image` from the Plugins Directory. The plugin installs the
-skill and registers the MCP server. It carries no API key—the server reads
-`GEMINI_API_KEY` from your environment, so export it before launching Codex.
+Then open Codex's Plugins Directory and install **NB2Lite Image** (`nb2lite-image`).
+The plugin manifest points Codex at both the packaged skill and `.mcp.json`, so
+the `nb2lite-agent` server is registered automatically.
+
+The plugin intentionally carries no secret. Before launching Codex, expose your
+key in the same shell:
+
+```bash
+export GEMINI_API_KEY="your-key"
+codex
+```
+
+Approve the server when Codex prompts, then run `/mcp`; it should list
+`nb2lite-agent` and its four tools.
 
 ### Path B: Clone and bootstrap (this repo)
 
@@ -100,14 +116,15 @@ cd nb2lite-skill-codex
 #    and prompts for your API key (stored in ~/gemini.key)
 ./init.sh
 
-# 3. Restart Codex in this directory and approve the server
-#    when prompted. Verify with:
-/mcp        # should list nb2lite-agent
+# 3. Start or restart Codex from this checkout
+codex
 ```
 
-That's genuinely it. `init.sh` is safe to rerun if anything looks off.
+Inside Codex, approve the server and run `/mcp`. The checked-in
+`.codex/config.toml` launches the authoritative root `server.py`; the repository
+skill lives at `.agents/skills/nb2lite-image/`. `init.sh` is safe to rerun.
 
-### Path C: Install into *your* project
+### Path C: Project-scoped install
 
 From a clone of the repo:
 
@@ -116,10 +133,58 @@ make init TARGET=/path/to/your/project ARGS='--output-dir ./images'
 ```
 
 This copies the skill into `<project>/.agents/skills/nb2lite-image/` and writes
-the `nb2lite-agent` entry into that project's `.codex/config.toml`. Export the
-key (or source `set_env.sh`) before launching Codex, then verify with `/mcp`.
+an idempotent `nb2lite-agent` block into `<project>/.codex/config.toml`. The
+server path is absolute, while `IMAGE_OUTPUT_DIR` can be project-relative.
 
-### Path D: Docker (nothing on the host but Docker)
+```bash
+cd /path/to/your/project
+export GEMINI_API_KEY="your-key"
+codex
+```
+
+Approve the server, then verify it with `/mcp`.
+
+### Path D: User-wide skill and MCP registration
+
+To make the skill available to every Codex project:
+
+```bash
+make init ARGS='--global'
+```
+
+This installs the skill under `~/.agents/skills/nb2lite-image/` and runs
+`codex mcp add` to register `nb2lite-agent` in the user Codex configuration.
+As with every other path, export `GEMINI_API_KEY` before starting Codex.
+
+### Path E: Manual Codex registration
+
+If you already copied the skill and only need the MCP server, Codex can register
+it directly:
+
+```bash
+python3 -m pip install -r /absolute/path/to/nb2lite-image/mcp/requirements.txt
+codex mcp add nb2lite-agent \
+  --env GEMINI_MODEL_NAME=gemini-3.1-flash-lite-image \
+  -- python3 /absolute/path/to/nb2lite-image/mcp/server.py
+```
+
+For a project-scoped setup, the equivalent `.codex/config.toml` block is:
+
+```toml
+[mcp_servers.nb2lite-agent]
+command = "python3"
+args = ["/absolute/path/to/nb2lite-image/mcp/server.py"]
+env_vars = ["GEMINI_API_KEY", "GOOGLE_API_KEY"]
+
+[mcp_servers.nb2lite-agent.env]
+GEMINI_MODEL_NAME = "gemini-3.1-flash-lite-image"
+IMAGE_OUTPUT_DIR = "./images"
+```
+
+Notice the split: `env_vars` forwards secret values already present in the
+shell; the `[...env]` table contains safe, non-secret defaults.
+
+### Path F: Docker (nothing on the host but Docker)
 
 The server is published as [`xbill9/nb2lite-agent`](https://hub.docker.com/r/xbill9/nb2lite-agent):
 
@@ -134,8 +199,10 @@ The `-v "$PWD:$PWD" -w "$PWD"` mount matters: the server saves images to disk an
 
 ### Troubleshooting, the whole guide
 
-- `/mcp` doesn't list the server → restart Codex in the project directory.
+- `/mcp` doesn't list the server → start or restart Codex in the directory that contains the project-scoped `.codex/config.toml`.
+- The skill does not trigger → confirm `SKILL.md` exists at `.agents/skills/nb2lite-image/SKILL.md` (project) or `~/.agents/skills/nb2lite-image/SKILL.md` (global), then restart Codex.
 - Tools return `🔴 GEMINI_API_KEY is not set` → run `source set_env.sh` (or export the key) and restart.
+- Imports fail → run `python3 -m pip install -r requirements.txt` from the repo, or point it at the installed skill's `mcp/requirements.txt`.
 - Anything else → ask Codex to call `get_help`; it reports the live config.
 
 ## Examples: a session in practice
@@ -193,34 +260,56 @@ This repo dogfoods itself at every layer:
 
 - The **skill is active inside its own repository** — open Codex in a clone and the `nb2lite-image` skill and `nb2lite-agent` server are already wired up, so every development session doubles as an integration test.
 - The **integration tests** (`make test`) drive the same four MCP tools an end user would, against the live API.
-- And now, **the cover image of this article was generated by the exact skill the article describes**, from inside a Codex session in this repo. One tool call, first attempt, no retouching:
+- And now, **the cover image of this article was made by the exact skill and MCP server the article describes**, from inside a Codex session in this repo. The first call created a square neon-purple Codex mascot:
 
 ```python
 generate_image(
-    prompt="A wide tech blog cover illustration: a friendly robot artist "
-           "painting a glowing galaxy on an easel, while a chain of connected "
-           "frames behind it shows the same picture evolving step by step "
-           "(day sky, then sunset, then storm with lightning). Flat vector "
-           "style, deep indigo background, neon cyan and orange accents. "
-           "Title text 'NB2Lite + MCP', subtitle 'Stateful image editing "
-           "as a Codex skill'. Crisp, accurate lettering.",
+    prompt="A striking original Codex-inspired AI coding mascot, a friendly "
+           "compact futuristic robot glowing intense neon purple and "
+           "ultraviolet light, with a sleek graphite body, luminous violet "
+           "circuit patterns, floating code glyphs, and premium 3D character "
+           "illustration styling. No words, no watermark.",
+    aspect_ratio="1:1",
+    thinking_level="high",
+)
+# 🟢 Image successfully saved!
+# • Saved to: gen_1784836047_64985fb9.jpg
+# • Interaction ID: v1_Chd6bTlpYXZMWURhRzlfdU1Q...
+```
+
+The mascot worked, but a square image is the wrong shape for a dev.to header.
+Rather than taking the result into a separate graphics app, Codex fed the local
+output straight back through the MCP server:
+
+```python
+edit_local_image(
+    image_path="./gen_1784836047_64985fb9.jpg",
+    edit_prompt="Adapt this exact neon-purple mascot into a wide 16:9 "
+                "technology article cover. Preserve its identity and style, "
+                "place it on the right third, extend a dark coding workspace "
+                "and subtle MCP node lines across the left, and leave strong "
+                "headline negative space. Include no words or watermark.",
     aspect_ratio="16:9",
     thinking_level="high",
 )
 # 🟢 Image successfully saved!
-# • Saved to: gen_1784759177_cbab8b65.jpg
-# • Interaction ID: v1_ChdpRU5hb2o3SWMzV2pNY1AtUFgy...
+# • Saved to: edit_local_1784837547_e4c9df68.jpg
+# • Interaction ID: v1_ChdxblZpYXVtTURxS2ZfdU1Q...
 ```
 
-(That exact output is committed to the repo as [`devto-cover.jpg`](https://github.com/xbill9/nb2lite-skill-codex/blob/main/devto-cover.jpg), receipts and all.)
+That second output is committed as [`devto-cover.jpg`](https://github.com/xbill9/nb2lite-skill-codex/blob/main/devto-cover.jpg). No manual compositing or retouching: Codex discovered the skill, called the MCP tools, read the saved paths, and produced the artifact used by the article.
 
 Worth noticing:
 
-- **The text rendered correctly.** "NB2Lite + MCP" and the full subtitle came out crisp and typo-free — that's what `thinking_level: "high"` buys you on text-heavy layouts.
-- **The model illustrated its own pitch.** The chain of frames (day → sunset → storm → galaxy) *is* the stateful edit loop — the image explains the Interactions API better than a diagram I'd have drawn by hand.
-- **If I wanted the accent color changed,** I wouldn't regenerate — I'd `edit_image` with that interaction ID and say "make the orange accents magenta." That's the whole point.
+- **The square concept became a real editorial asset.** `edit_local_image` is the bridge from any file on disk into the stateful workflow.
+- **The visual identity survived the format change.** The graphite body, expressive eyes, and ultraviolet glow carry from the mascot study into the wide cover.
+- **The next change would be stateful.** The local edit returned an interaction ID, so another request—"make the MCP nodes brighter"—would use `edit_image` with the newest ID.
 
-Dogfooding is the cheapest credibility there is: no cherry-picked gallery, no "results may vary" fine print — the tool's real output is literally the first thing you saw when you opened this article. If the skill had flubbed the lettering or mangled the layout, you'd be looking at the evidence right now. Instead, the article ships with its own proof baked into the header.
+Dogfooding is the cheapest credibility there is: the tool's real output is
+literally the first thing you saw when you opened this article. The cover also
+tests more than generation—it exercises Codex skill discovery, MCP tool
+registration, local-file editing, aspect-ratio adaptation, saving, and the
+handoff to a real publishing workflow.
 
 ## Links
 
