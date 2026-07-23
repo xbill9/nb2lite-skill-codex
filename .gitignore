@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.jpg
+!devto-cover.jpg
+*.png
+*.webp
+.agents/*
+!.agents/plugins/
+!.agents/plugins/marketplace.json
+!.agents/skills/
+.ruff_cache
+.mypy_cache
+.env

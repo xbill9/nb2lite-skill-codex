@@ -1,0 +1,27 @@
+{
+  "name": "nb2lite-image",
+  "version": "0.1.1",
+  "description": "Generate and edit images with Google's gemini-3.1-flash-lite-image through a stateful MCP server.",
+  "author": {
+    "name": "xbill9",
+    "url": "https://github.com/xbill9"
+  },
+  "homepage": "https://github.com/xbill9/nb2lite-skill-codex",
+  "repository": "https://github.com/xbill9/nb2lite-skill-codex",
+  "license": "Apache-2.0",
+  "keywords": ["gemini", "image-generation", "nb2lite", "mcp", "interactions-api"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "NB2Lite Image",
+    "shortDescription": "Generate and iteratively edit Gemini images",
+    "longDescription": "Generate images, edit local files, and preserve visual context across stateful multi-turn edits with Google's NB2Lite image model.",
+    "developerName": "xbill9",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": [
+      "Generate an image with NB2Lite.",
+      "Edit this image while preserving its existing visual style."
+    ]
+  }
+}

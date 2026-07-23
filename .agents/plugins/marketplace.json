@@ -1,0 +1,20 @@
+{
+  "name": "nb2lite-skill-codex",
+  "interface": {
+    "displayName": "NB2Lite Codex Plugins"
+  },
+  "plugins": [
+    {
+      "name": "nb2lite-image",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/xbill9/nb2lite-skill-codex.git"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

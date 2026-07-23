@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "nb2lite-agent": {
+      "command": "python3",
+      "args": ["${PLUGIN_ROOT}/skills/nb2lite-image/mcp/server.py"],
+      "env_vars": [
+        "GEMINI_API_KEY",
+        "GOOGLE_API_KEY",
+        "GEMINI_MODEL_NAME",
+        "IMAGE_OUTPUT_DIR"
+      ],
+      "env": {
+        "GEMINI_MODEL_NAME": "gemini-3.1-flash-lite-image"
+      }
+    }
+  }
+}

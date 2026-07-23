@@ -1,0 +1,8 @@
+[mcp_servers.nb2lite-agent]
+command = "python3"
+args = ["server.py"]
+cwd = "."
+env_vars = ["GEMINI_API_KEY", "GOOGLE_API_KEY", "GEMINI_MODEL_NAME", "IMAGE_OUTPUT_DIR"]
+
+[mcp_servers.nb2lite-agent.env]
+GEMINI_MODEL_NAME = "gemini-3.1-flash-lite-image"
