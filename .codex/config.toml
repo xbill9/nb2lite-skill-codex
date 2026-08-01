@@ -6,3 +6,12 @@ env_vars = ["GEMINI_API_KEY", "GOOGLE_API_KEY", "GEMINI_MODEL_NAME", "IMAGE_OUTP
 
 [mcp_servers.nb2lite-agent.env]
 GEMINI_MODEL_NAME = "gemini-3.1-flash-lite-image"
+
+[mcp_servers.nb2lite-agent.tools.get_help]
+approval_mode = "approve"
+
+[mcp_servers.nb2lite-agent.tools.generate_image]
+approval_mode = "approve"
+
+[mcp_servers.nb2lite-agent.tools.edit_local_image]
+approval_mode = "approve"
